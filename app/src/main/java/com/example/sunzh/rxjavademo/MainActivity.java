@@ -12,14 +12,21 @@ import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.example.sunzh.rxjavademo.rest.GitHubService;
+import com.example.sunzh.rxjavademo.rest.Repo;
+import com.example.sunzh.rxjavademo.rest.RestGenerator;
 import com.jakewharton.rxbinding.view.RxView;
 import com.jakewharton.rxbinding.widget.RxAdapterView;
 import com.jakewharton.rxbinding.widget.RxCompoundButton;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 import rx.Observable;
 import rx.Observer;
 import rx.Subscriber;
@@ -51,9 +58,37 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         setContentView(R.layout.activity_main);
         initView();
 //        testRxjava();
-        testTransformation();
+//        testTransformation();
+//
+//        testRxBinding();
+//        testRetrofit();
+        testRestful();
 
-        testRxBinding();
+    }
+
+    /**
+     * retrofit测试
+     */
+    private void testRetrofit() {
+        GitHubService service = RestGenerator.generatService();
+        Call<List<Repo>> repos = service.listRepos("octocat");
+        repos.enqueue(new Callback<List<Repo>>() {
+            @Override
+            public void onResponse(Call<List<Repo>> call, Response<List<Repo>> response) {
+                if (response != null && response.body() != null) {
+                    List<Repo> repos1 = response.body();
+                    if (repos1.size() >= 0) {
+                        Log.e("TAG", "" + repos1.get(0).toString());
+                        Toast.makeText(MainActivity.this, repos1.get(0).toString(), Toast.LENGTH_SHORT).show();
+                    }
+                }
+            }
+
+            @Override
+            public void onFailure(Call<List<Repo>> call, Throwable t) {
+
+            }
+        });
     }
 
     private void testRxBinding() {
@@ -61,7 +96,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     /**
-     * 变换
+     * rxjava变换
      */
     private void testTransformation() {
 //        Observable.just("images/logo.png")
@@ -298,7 +333,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 .subscribe(new Action1<Void>() {
                     @Override
                     public void call(Void aVoid) {
-                        Toast.makeText(MainActivity.this, "点击后2秒内取一次的触发事件！", Toast.LENGTH_SHORT).show();
+                        testRetrofit();
+//                        Toast.makeText(MainActivity.this, "点击后2秒内取一次的触发事件！", Toast.LENGTH_SHORT).show();
                     }
                 });
         mListview = (ListView) findViewById(R.id.listview);
@@ -339,9 +375,28 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     @Override
     public void onClick(View v) {
-        switch (v.getId()) {
-            case R.id.tv:
-                break;
-        }
     }
+
+    private void testRestful() {
+        String API = "https://api.github.com";
+
+//        RestAdapter restAdapter = new RestAdapter.Builder().setLogLevel(RestAdapter.LogLevel.FULL).setEndpoint(API).build();
+//        gitapi git = restAdapter.create(gitapi.class);
+//        String user = "AuxLuffy";
+//        git.getFeed(user, new retrofit.Callback<gitmodel>() {
+//            @Override
+//            public void success(gitmodel gitmodel, retrofit.client.Response response) {
+//                mTv.setText("Github Name: " + gitmodel.getName() + "/nWebsite: " + gitmodel.getBlog()
+//                        + "/nCompany Name: " + gitmodel.getCompany());
+//            }
+//
+//            @Override
+//            public void failure(RetrofitError error) {
+//                mTv.setText(error.getMessage());
+//            }
+//        });
+
+    }
+
+
 }
