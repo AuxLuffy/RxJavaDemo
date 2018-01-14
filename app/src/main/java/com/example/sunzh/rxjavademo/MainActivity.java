@@ -1,5 +1,6 @@
 package com.example.sunzh.rxjavademo;
 
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
@@ -29,6 +30,7 @@ import retrofit2.Callback;
 import retrofit2.Response;
 import rx.Observable;
 import rx.Observer;
+import rx.Scheduler;
 import rx.Subscriber;
 import rx.android.schedulers.AndroidSchedulers;
 import rx.functions.Action0;
@@ -51,20 +53,26 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
      */
     private Button mButton;
     private CheckBox mCheckbox;
+    private Student[] stus;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         initView();
+        generateStus();
 //        testRxjava();
 //        testTransformation();
 //
 //        testRxBinding();
 //        testRetrofit();
         testRestful();
-
     }
+
+    private <T extends View> T findview(int id) {
+        return (T) findViewById(id);
+    }
+
 
     /**
      * retrofit测试
@@ -97,6 +105,18 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     /**
      * rxjava变换
+     * <p>
+     * 线程控制器{@link Scheduler}：可以指定每一段代码在什么样的线程中执行
+     * RxJava已经为我们提供了几种Scheduler:
+     * {@link Schedulers#immediate} 直接在当前线程
+     * {@link Schedulers#newThread} 总是新开线程
+     * {@link Schedulers#io()} io操作(读写文件、读写数据库、网络信息交互等)所使用的Scheduler.行为模式和 newThread() 差不多，区别在于 io() 的内部实现是是用一个无数量上限的线程池，可以重用空闲的线程，因此多数情况下 io() 比 newThread() 更有效率。不要把计算工作放在 io() 中，可以避免创建不必要的线程。
+     * {@link AndroidSchedulers#mainThread} android主线程
+     * {@link Schedulers#computation} 计算所使用的线程。通常指的是cpu密集型计算，即不会被io等操作限制性能的操作，例如图形的计算。其使用固定的线程池，大小为cpu核心数，不要把 I/O 操作放在 computation() 中，否则 I/O 操作的等待时间会浪费 CPU。
+     *
+     * 切换线程：
+     * {@link Observable#subscribeOn(rx.Scheduler)()} 指定subscribe() 所发生的线程，即 Observable.OnSubscribe 被激活时所处的线程。或者叫做事件产生的线程。
+     * {@link Observable#observeOn(rx.Scheduler)} 指定Subscriber 所运行在的线程。或者叫做事件消费的线程。其指定的是它之后的操作所发生的线程，可以多次调用，随意变换线程
      */
     private void testTransformation() {
 //        Observable.just("images/logo.png")
@@ -114,20 +134,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 //                });
 
 
-        Student[] stus = new Student[3];
-        ArrayList<String> course = new ArrayList<>();
-        course.add("english");
-        course.add("french");
-        course.add("chinese");
-        ArrayList<String> course1 = new ArrayList<>();
-        course1.add("english");
-        ArrayList<String> course2 = new ArrayList<>();
-        course2.add("english");
-        course2.add("chinese");
-
-        stus[0] = new Student("李三", course);
-        stus[1] = new Student("李三", course1);
-        stus[2] = new Student("李三", course2);
+//        generateStus();
 
         Subscriber<String> subscriber = new Subscriber<String>() {
             String tag = "course";
@@ -145,17 +152,23 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             @Override
             public void onNext(String s) {
                 Log.d(tag, s);
+                Log.e("TAG", "当前线程： " + Thread.currentThread().getName());      //消费事件
             }
         };
         Observable.from(stus)
-                .subscribeOn(Schedulers.io())//后台线程取数据
-                .observeOn(AndroidSchedulers.mainThread())//主线程显示
+                .subscribeOn(Schedulers.newThread())    //指定：在新的线程中发起
+                .observeOn(Schedulers.io())      //指定：在io线程中处理
                 .flatMap(new Func1<Student, Observable<String>>() {
                     @Override
                     public Observable<String> call(Student student) {
-                        return Observable.from(student.getCourses());
+                        //以下为处理数据
+                        String name = Thread.currentThread().getName();
+                        Log.e("TAG", "当前线程： " + name);
+                        return Observable.from(student.getCourses()); //处理数据
                     }
-                }).subscribe(subscriber);
+                })
+                .observeOn(AndroidSchedulers.mainThread())      //指定：在主线程中消费事析
+                .subscribe(subscriber);
 
 
         final Observable<String> observable = Observable.create(new Observable.OnSubscribe<String>() {
@@ -191,6 +204,26 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         });
 
 
+    }
+
+    /**
+     * 生产数据
+     */
+    private void generateStus() {
+        stus = new Student[3];
+        ArrayList<String> course = new ArrayList<>();
+        course.add("english");
+        course.add("french");
+        course.add("chinese");
+        ArrayList<String> course1 = new ArrayList<>();
+        course1.add("english");
+        ArrayList<String> course2 = new ArrayList<>();
+        course2.add("english");
+        course2.add("chinese");
+
+        stus[0] = new Student("张三", course);
+        stus[1] = new Student("李四", course1);
+        stus[2] = new Student("王五", course2);
     }
 
     private void showBitmap(Bitmap bitmap) {
@@ -268,7 +301,19 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 subscriber.onCompleted();
             }
         });
-        observable.subscribe(subscriber);
+        observable.doOnSubscribe(new Action0() {
+            @Override
+            public void call() {
+                Toast.makeText(MainActivity.this, "do on subscribe", Toast.LENGTH_SHORT).show();
+//                ProgressBar
+            }
+        }).doOnNext(new Action1<String>() {
+            @Override
+            public void call(String s) {
+                s = s + "s";
+            }
+        }).
+                subscribe(subscriber);
 
 
         Observable<String> observable1 = Observable.just("hello", "hi", "Aloha");
@@ -352,6 +397,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             @Override
             public void call(Integer integer) {
                 Toast.makeText(MainActivity.this, "item click" + integer, Toast.LENGTH_SHORT).show();
+                startActivity(new Intent(MainActivity.this, SecondActivity.class));
             }
         });
 
@@ -395,7 +441,121 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 //                mTv.setText(error.getMessage());
 //            }
 //        });
+        final String[] testStr = new String[]{"t1", "t2", "t3"};
+        Observable<String> observable = Observable.create(new Observable.OnSubscribe<String>() {
+            @Override
+            public void call(Subscriber<? super String> subscriber) {
+                subscriber.onStart();
+                subscriber.onNext(testStr[0]);
+                subscriber.onNext(testStr[1]);
+                subscriber.onNext(testStr[2]);
+            }
+        });
+        Subscriber<String> subscriber = new Subscriber<String>() {
+            @Override
+            public void onStart() {
+                super.onStart();
+                Log.d("rxjava-suscriber", "onStart");
+            }
 
+            @Override
+            public void onCompleted() {
+                Log.d("rxjava-suscriber", "onCompleted");
+
+            }
+
+            @Override
+            public void onError(Throwable e) {
+                Log.d("rxjava-suscriber", "onError, msg: " + e.getMessage());
+
+            }
+
+            @Override
+            public void onNext(String s) {
+                Log.d("rxjava-suscriber", "onNext, param: " + s);
+
+            }
+
+
+        };
+
+        testCreate();
+//        Log.d("rxjava-suscriber", "-------------testCreate---------");
+//        observable.subscribe(subscriber);
+
+//        Log.d("rxjava-suscriber", "-------------testJust---------");
+//        testJust(observable, subscriber);
+
+//        Log.d("rxjava-suscriber", "-------------testFrom---------");
+//        testFrom(testStr, subscriber);
+
+    }
+
+    private void testFrom(String[] testStr, Subscriber<String> subscriber) {
+        Observable.from(testStr).subscribe(subscriber);
+    }
+
+    private void testJust(Observable<String> observable, Subscriber<String> subscriber) {
+        Observable<String> just = Observable.just("a1", "a2", "a3");
+        just.subscribe(subscriber);
+    }
+
+    /**
+     * 测试create创建的observable
+     */
+    private void testCreate() {
+        Observable.create(new Observable.OnSubscribe<Student>() {
+            @Override
+            public void call(Subscriber<? super Student> subscriber) {
+                subscriber.onStart();
+                subscriber.onNext(new Student("sunzf", null));
+                subscriber.onCompleted();
+            }
+        }).subscribe(new Observer<Student>() {
+            @Override
+            public void onCompleted() {
+                Log.d("testCreate", "onCompleted");
+            }
+
+            @Override
+            public void onError(Throwable e) {
+                Log.e("testCreate", "onError");
+            }
+
+            @Override
+            public void onNext(Student student) {
+                Log.d("testCreate", student.getName());
+            }
+        });
+
+
+        Observable.from(stus)
+                .map(new Func1<Student, String>() {
+                    @Override
+                    public String call(Student student) {
+                        return student.getName();
+                    }
+                })
+                .subscribe(new Action1<String>() {
+                    @Override
+                    public void call(String s) {
+                        Log.d("action", "name:" + s);
+                    }
+                });
+
+        Observable.from(stus)
+                .flatMap(new Func1<Student, Observable<String>>() {
+                    @Override
+                    public Observable<String> call(Student student) {
+                        return Observable.from(student.getCourses());
+                    }
+                })
+                .subscribe(new Action1<String>() {
+                    @Override
+                    public void call(String s) {
+                        Log.d("action", "flatmap:course:" + s);
+                    }
+                });
     }
 
 

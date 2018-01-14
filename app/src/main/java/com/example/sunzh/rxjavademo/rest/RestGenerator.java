@@ -11,7 +11,7 @@ import retrofit2.converter.scalars.ScalarsConverterFactory;
  */
 
 public class RestGenerator {
-    static String BASEURL = "https://api.github.com/users/basil2style";
+    static String BASEURL = "https://api.github.com/users/basil2style";//baseurl总是以 "/" 结尾，如果是,则取最后一个 “/” 之前的地址作为baseurl
 
     /**
      * 注意：2.0不再提供默认的converter了。如果不显性的声明一个可用的converter的话，retrofit是会报错的：
@@ -29,7 +29,7 @@ public class RestGenerator {
                 .addConverterFactory(ScalarsConverterFactory.create())
                 //增加返回为Observable<T>的支持
                 .addCallAdapterFactory(RxJavaCallAdapterFactory.create())
-                //因为json并没有什么继承上的约束，所以我们无法爱过什么确切的条件来判断一个对象是否是json对象，
+                //因为json并没有什么继承上的约束，所以我们无法通过什么确切的条件来判断一个对象是否是json对象，
                 // 以至于json的converters会对任何数据都回复说：我可以处理！
                 // 这个一定要记住，json converter 一定要放在最后，不然会和你的预期不符
                 //增加返回值为Gson的支持（以实体类返回）
